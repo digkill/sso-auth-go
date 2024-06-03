@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"github.com/digkill/sso-auth-go/internal/domain/models"
 	"github.com/digkill/sso-auth-go/internal/storage"
 	"github.com/mattn/go-sqlite3"
 )
@@ -61,4 +62,50 @@ func (s *Storage) SaveUser(ctx context.Context,
 	return id, nil
 }
 
-//
+// User returns user by email.
+func (s *Storage) User(ctx context.Context, email string) (models.User, error) {
+	const method = "storage.sqlite.User"
+
+	stmt, err := s.db.Prepare("SELECT id, email, pass_hash FROM users WHERE email = ?")
+	if err != nil {
+		return models.User{}, fmt.Errorf("%s: %w", method, err)
+	}
+
+	row := stmt.QueryRowContext(ctx, email)
+
+	var user models.User
+	err = row.Scan(&user.ID, &user.Email, &user.PassHash)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return models.User{}, fmt.Errorf("%s: %w", method, storage.ErrUserNotFound)
+		}
+
+		return models.User{}, fmt.Errorf("%s: %w", method, err)
+	}
+
+	return user, nil
+}
+
+// App returns app by id.
+func (s *Storage) App(ctx context.Context, appID string) (models.App, error) {
+	const method = "storage.sqlite.App"
+
+	smtp, err := s.db.Prepare("SELECT id, name, secret FROM apps WHERE id = ?")
+	if err != nil {
+		return models.App{}, fmt.Errorf("%s: %w", method, err)
+	}
+
+	row := smtp.QueryRowContext(ctx, appID)
+
+	var app models.App
+	err = row.Scan(&app.ID, &app.Name, &app.Secret)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return models.App{}, fmt.Errorf("%s: %w", method, storage.ErrAppNotFound)
+		}
+
+		return models.App{}, fmt.Errorf("%s: %w", method, err)
+	}
+
+	return app, nil
+}
